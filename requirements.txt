@@ -1,4 +1,0 @@
-Flask
-ultralytics
-Pillow
-python-dotenv
