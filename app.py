@@ -118,18 +118,36 @@ def predict():
             
             # 1. Process detections for measurements
             detections = []
+            
+            # 1. First, measure or estimate how many pixels wide the entire road lane is in your picture
+            lane_width_pixels = 1000  # Example: The road is 1000 pixels wide in the image
+            lane_width_meters = 3.5   # Example: A standard road is 3.5 meters wide
+
+            # Calculate your conversion ratio (how many meters is 1 pixel?)
+            meters_per_pixel = lane_width_meters / lane_width_pixels
+            
             for box in result.boxes:
+                # Get the class name (Crack vs Pothole)
                 class_id = int(box.cls[0])
                 class_name = result.names[class_id]
                 
-                # Get width and height in pixels
+                # Get the width and height of the box in pixels
                 width_px = int(box.xywh[0][2])
                 height_px = int(box.xywh[0][3])
+                
+                # Do the math to convert to METERS!
+                width_m = round(width_px * meters_per_pixel, 2)
+                height_m = round(height_px * meters_per_pixel, 2)
+                
+                # Print the result
+                print(f"Detected {class_name}: {width_m:.2f} meters wide, {height_m:.2f} meters long")
                 
                 detections.append({
                     "class_name": class_name,
                     "width_px": width_px,
-                    "height_px": height_px
+                    "height_px": height_px,
+                    "width_m": width_m,
+                    "height_m": height_m
                 })
                 
             # 2. Extract plotting image and convert to base64
@@ -139,6 +157,13 @@ def predict():
             # Convert BGR back to RGB for PIL Image
             im_rgb = im_array[..., ::-1]
             plotted_img = PILImage.fromarray(im_rgb)
+            
+            # Resize image to a height of 720 pixels maintaining aspect ratio
+            width, height = plotted_img.size
+            new_height = 720
+            new_width = int(new_height * (width / height))
+            resample_filter = getattr(PILImage, 'Resampling', PILImage).LANCZOS
+            plotted_img = plotted_img.resize((new_width, new_height), resample_filter)
             
             # Save the plotted image to an in-memory bytes buffer
             buffer = BytesIO()
@@ -156,5 +181,6 @@ def predict():
             return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Run the Flask app on default port 5000
-    app.run(debug=True, port=5000)
+    # Use the PORT environment variable if available, otherwise default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
